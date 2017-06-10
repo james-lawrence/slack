@@ -55,7 +55,7 @@ func GetOAuthResponseContext(ctx context.Context, clientID, clientSecret, code, 
 		"redirect_uri":  {redirectURI},
 	}
 	response := &OAuthResponse{}
-	err = post(ctx, customHTTPClient, "oauth.access", values, response, debug)
+	err = postForm(ctx, customHTTPClient, SLACK_API+"oauth.access", values, response, debug)
 	if err != nil {
 		return nil, err
 	}

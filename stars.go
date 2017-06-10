@@ -58,7 +58,7 @@ func (api *Client) AddStarContext(ctx context.Context, channel string, item Item
 	}
 
 	response := &SlackResponse{}
-	if err := post(ctx, api.httpclient, "stars.add", values, response, api.debug); err != nil {
+	if err := postForm(ctx, api.httpclient, SLACK_API+"stars.add", values, response, api.debug); err != nil {
 		return err
 	}
 	if !response.Ok {
@@ -89,7 +89,7 @@ func (api *Client) RemoveStarContext(ctx context.Context, channel string, item I
 	}
 
 	response := &SlackResponse{}
-	if err := post(ctx, api.httpclient, "stars.remove", values, response, api.debug); err != nil {
+	if err := postForm(ctx, api.httpclient, SLACK_API+"stars.remove", values, response, api.debug); err != nil {
 		return err
 	}
 	if !response.Ok {
@@ -119,7 +119,7 @@ func (api *Client) ListStarsContext(ctx context.Context, params StarsParameters)
 	}
 
 	response := &listResponseFull{}
-	err := post(ctx, api.httpclient, "stars.list", values, response, api.debug)
+	err := postForm(ctx, api.httpclient, SLACK_API+"stars.list", values, response, api.debug)
 	if err != nil {
 		return nil, nil, err
 	}
