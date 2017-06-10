@@ -38,7 +38,7 @@ type dndTeamInfoResponse struct {
 
 func dndRequest(ctx context.Context, client HTTPRequester, path string, values url.Values, debug bool) (*dndResponseFull, error) {
 	response := &dndResponseFull{}
-	err := post(ctx, client, path, values, response, debug)
+	err := postForm(ctx, client, SLACK_API+path, values, response, debug)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (api *Client) EndDNDContext(ctx context.Context) error {
 
 	response := &SlackResponse{}
 
-	if err := post(ctx, api.httpclient, "dnd.endDnd", values, response, api.debug); err != nil {
+	if err := postForm(ctx, api.httpclient, SLACK_API+"dnd.endDnd", values, response, api.debug); err != nil {
 		return err
 	}
 	if !response.Ok {
@@ -122,7 +122,7 @@ func (api *Client) GetDNDTeamInfoContext(ctx context.Context, users []string) (m
 	}
 	response := &dndTeamInfoResponse{}
 
-	if err := post(ctx, api.httpclient, "dnd.teamInfo", values, response, api.debug); err != nil {
+	if err := postForm(ctx, api.httpclient, SLACK_API+"dnd.teamInfo", values, response, api.debug); err != nil {
 		return nil, err
 	}
 	if !response.Ok {
@@ -138,7 +138,7 @@ func (api *Client) SetSnooze(minutes int) (*DNDStatus, error) {
 	return api.SetSnoozeContext(context.Background(), minutes)
 }
 
-// SetSnooze adjusts the snooze duration for a user's Do Not Disturb settings with a custom context.
+// SetSnoozeContext adjusts the snooze duration for a user's Do Not Disturb settings with a custom context.
 // For more information see the SetSnooze docs
 func (api *Client) SetSnoozeContext(ctx context.Context, minutes int) (*DNDStatus, error) {
 	values := url.Values{

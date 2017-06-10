@@ -27,7 +27,7 @@ type Channel struct {
 
 func channelRequest(ctx context.Context, client HTTPRequester, path string, values url.Values, debug bool) (*channelResponseFull, error) {
 	response := &channelResponseFull{}
-	err := post(ctx, client, path, values, response, debug)
+	err := postForm(ctx, client, SLACK_API+path, values, response, debug)
 	if err != nil {
 		return nil, err
 	}

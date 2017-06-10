@@ -138,7 +138,7 @@ func NewGetFilesParameters() GetFilesParameters {
 
 func fileRequest(ctx context.Context, client HTTPRequester, path string, values url.Values, debug bool) (*fileResponseFull, error) {
 	response := &fileResponseFull{}
-	err := post(ctx, client, path, values, response, debug)
+	err := postForm(ctx, client, SLACK_API+path, values, response, debug)
 	if err != nil {
 		return nil, err
 	}
@@ -242,11 +242,11 @@ func (api *Client) UploadFileContext(ctx context.Context, params FileUploadParam
 	}
 	if params.Content != "" {
 		values.Add("content", params.Content)
-		err = post(ctx, api.httpclient, "files.upload", values, response, api.debug)
+		err = postForm(ctx, api.httpclient, SLACK_API+"files.upload", values, response, api.debug)
 	} else if params.File != "" {
-		err = postLocalWithMultipartResponse(ctx, api.httpclient, "files.upload", params.File, "file", values, response, api.debug)
+		err = postLocalWithMultipartResponse(ctx, api.httpclient, SLACK_API+"files.upload", params.File, "file", values, response, api.debug)
 	} else if params.Reader != nil {
-		err = postWithMultipartResponse(ctx, api.httpclient, "files.upload", params.Filename, "file", values, params.Reader, response, api.debug)
+		err = postWithMultipartResponse(ctx, api.httpclient, SLACK_API+"files.upload", params.Filename, "file", values, params.Reader, response, api.debug)
 	}
 	if err != nil {
 		return nil, err

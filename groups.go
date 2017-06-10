@@ -30,7 +30,7 @@ type groupResponseFull struct {
 
 func groupRequest(ctx context.Context, client HTTPRequester, path string, values url.Values, debug bool) (*groupResponseFull, error) {
 	response := &groupResponseFull{}
-	err := post(ctx, client, path, values, response, debug)
+	err := postForm(ctx, client, SLACK_API+path, values, response, debug)
 	if err != nil {
 		return nil, err
 	}

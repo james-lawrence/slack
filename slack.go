@@ -103,7 +103,7 @@ func (api *Client) AuthTest() (response *AuthTestResponse, error error) {
 // AuthTestContext tests if the user is able to do authenticated requests or not with a custom context
 func (api *Client) AuthTestContext(ctx context.Context) (response *AuthTestResponse, error error) {
 	responseFull := &authTestResponseFull{}
-	err := post(ctx, api.httpclient, "auth.test", url.Values{"token": {api.token}}, responseFull, api.debug)
+	err := postForm(ctx, api.httpclient, SLACK_API+"auth.test", url.Values{"token": {api.token}}, responseFull, api.debug)
 	if err != nil {
 		return nil, err
 	}

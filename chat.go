@@ -3,7 +3,7 @@ package slack
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -119,13 +119,18 @@ func (api *Client) SendMessage(channel string, options ...MsgOption) (string, st
 
 // SendMessageContext more flexible method for configuring messages with a custom context.
 func (api *Client) SendMessageContext(ctx context.Context, channel string, options ...MsgOption) (string, string, string, error) {
-	channel, values, err := ApplyMsgOptions(api.token, channel, options...)
-	if err != nil {
+	var (
+		err      error
+		req      *http.Request
+		response = &chatResponseFull{}
+		parser   func(*chatResponseFull) responseParser
+	)
+
+	if req, parser, err = buildSender(options...).BuildRequest(api.token, channel); err != nil {
 		return "", "", "", err
 	}
 
-	response, err := chatRequest(ctx, api.httpclient, channel, values, api.debug)
-	if err != nil {
+	if err = post(ctx, api.httpclient, req, parser(response), api.debug); err != nil {
 		return "", "", "", err
 	}
 
@@ -134,6 +139,11 @@ func (api *Client) SendMessageContext(ctx context.Context, channel string, optio
 
 // ApplyMsgOptions utility function for debugging/testing chat requests.
 func ApplyMsgOptions(token, channel string, options ...MsgOption) (string, url.Values, error) {
+	config, err := applyMsgOptions(token, channel, options...)
+	return string(config.mode), config.values, err
+}
+
+func applyMsgOptions(token, channel string, options ...MsgOption) (sendConfig, error) {
 	config := sendConfig{
 		mode: chatPostMessage,
 		values: url.Values{
@@ -144,28 +154,22 @@ func ApplyMsgOptions(token, channel string, options ...MsgOption) (string, url.V
 
 	for _, opt := range options {
 		if err := opt(&config); err != nil {
-			return string(config.mode), config.values, err
+			return config, err
 		}
 	}
 
-	return string(config.mode), config.values, nil
+	return config, nil
+}
+
+func buildSender(options ...MsgOption) sendConfig {
+	return sendConfig{
+		options: options,
+	}
 }
 
 func escapeMessage(message string) string {
 	replacer := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
 	return replacer.Replace(message)
-}
-
-func chatRequest(ctx context.Context, client HTTPRequester, path string, values url.Values, debug bool) (*chatResponseFull, error) {
-	response := &chatResponseFull{}
-	err := post(ctx, client, path, values, response, debug)
-	if err != nil {
-		return nil, err
-	}
-	if !response.Ok {
-		return nil, errors.New(response.Error)
-	}
-	return response, nil
 }
 
 type sendMode string
@@ -174,11 +178,62 @@ const (
 	chatUpdate      sendMode = "chat.update"
 	chatPostMessage sendMode = "chat.postMessage"
 	chatDelete      sendMode = "chat.delete"
+	chatResponse    sendMode = "chat.responseURL"
 )
 
 type sendConfig struct {
-	mode   sendMode
-	values url.Values
+	options     []MsgOption
+	mode        sendMode
+	endpoint    string
+	values      url.Values
+	attachments []Attachment
+}
+
+func (t sendConfig) BuildRequest(token, channel string) (*http.Request, func(*chatResponseFull) responseParser, error) {
+	config, err := applyMsgOptions(token, channel, t.options...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	switch config.mode {
+	case chatResponse:
+		return responseURLSender{
+			endpoint:    config.endpoint,
+			values:      config.values,
+			attachments: config.attachments,
+		}.BuildRequest()
+	default:
+		return formSender{endpoint: config.endpoint, values: config.values}.BuildRequest()
+	}
+}
+
+type formSender struct {
+	endpoint string
+	values   url.Values
+}
+
+func (t formSender) BuildRequest() (*http.Request, func(*chatResponseFull) responseParser, error) {
+	req, err := formReq(t.endpoint, t.values)
+	return req, func(resp *chatResponseFull) responseParser {
+		return newJSONResponseParser(resp)
+	}, err
+}
+
+type responseURLSender struct {
+	endpoint    string
+	values      url.Values
+	attachments []Attachment
+}
+
+func (t responseURLSender) BuildRequest() (*http.Request, func(*chatResponseFull) responseParser, error) {
+	req, err := jsonReq(t.endpoint, Msg{
+		Text:        t.values.Get("text"),
+		Timestamp:   t.values.Get("ts"),
+		Attachments: t.attachments,
+	})
+	return req, func(resp *chatResponseFull) responseParser {
+		return newTextResponseParser(resp)
+	}, err
 }
 
 // MsgOption option provided when sending a message.
@@ -188,6 +243,7 @@ type MsgOption func(*sendConfig) error
 func MsgOptionPost() MsgOption {
 	return func(config *sendConfig) error {
 		config.mode = chatPostMessage
+		config.endpoint = SLACK_API + string(chatPostMessage)
 		config.values.Del("ts")
 		return nil
 	}
@@ -197,6 +253,7 @@ func MsgOptionPost() MsgOption {
 func MsgOptionUpdate(timestamp string) MsgOption {
 	return func(config *sendConfig) error {
 		config.mode = chatUpdate
+		config.endpoint = SLACK_API + string(chatUpdate)
 		config.values.Add("ts", timestamp)
 		return nil
 	}
@@ -206,7 +263,18 @@ func MsgOptionUpdate(timestamp string) MsgOption {
 func MsgOptionDelete(timestamp string) MsgOption {
 	return func(config *sendConfig) error {
 		config.mode = chatDelete
+		config.endpoint = SLACK_API + string(chatDelete)
 		config.values.Add("ts", timestamp)
+		return nil
+	}
+}
+
+// MsgOptionResponseURL supplies a url to use as the endpoint.
+func MsgOptionResponseURL(url string) MsgOption {
+	return func(config *sendConfig) error {
+		config.mode = chatResponse
+		config.endpoint = url
+		config.values.Del("ts")
 		return nil
 	}
 }
@@ -240,10 +308,17 @@ func MsgOptionAttachments(attachments ...Attachment) MsgOption {
 			return nil
 		}
 
-		attachments, err := json.Marshal(attachments)
+		config.attachments = attachments
+
+		// FIXME: We are setting the attachments on the message twice: above for
+		// the json version, and below for the html version.  The marshalled bytes
+		// we put into config.values below don't work directly in the Msg version.
+
+		attachmentBytes, err := json.Marshal(attachments)
 		if err == nil {
-			config.values.Set("attachments", string(attachments))
+			config.values.Set("attachments", string(attachmentBytes))
 		}
+
 		return err
 	}
 }

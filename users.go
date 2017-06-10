@@ -123,7 +123,7 @@ func NewUserSetPhotoParams() UserSetPhotoParams {
 
 func userRequest(ctx context.Context, client HTTPRequester, path string, values url.Values, debug bool) (*userResponseFull, error) {
 	response := &userResponseFull{}
-	err := post(ctx, client, path, values, response, debug)
+	err := postForm(ctx, client, SLACK_API+path, values, response, debug)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +240,7 @@ func (api *Client) GetUserIdentityContext(ctx context.Context) (*UserIdentityRes
 	}
 	response := &UserIdentityResponse{}
 
-	err := post(ctx, api.httpclient, "users.identity", values, response, api.debug)
+	err := postForm(ctx, api.httpclient, SLACK_API+"users.identity", values, response, api.debug)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +271,7 @@ func (api *Client) SetUserPhotoContext(ctx context.Context, image string, params
 		values.Add("crop_w", string(params.CropW))
 	}
 
-	err := postLocalWithMultipartResponse(ctx, api.httpclient, "users.setPhoto", image, "image", values, response, api.debug)
+	err := postLocalWithMultipartResponse(ctx, api.httpclient, SLACK_API+"users.setPhoto", image, "image", values, response, api.debug)
 	if err != nil {
 		return err
 	}
@@ -293,7 +293,7 @@ func (api *Client) DeleteUserPhotoContext(ctx context.Context) error {
 		"token": {api.token},
 	}
 
-	err := post(ctx, api.httpclient, "users.deletePhoto", values, response, api.debug)
+	err := postForm(ctx, api.httpclient, SLACK_API+"users.deletePhoto", values, response, api.debug)
 	if err != nil {
 		return err
 	}
@@ -345,7 +345,7 @@ func (api *Client) SetUserCustomStatusContext(ctx context.Context, statusText, s
 	}
 
 	response := &userResponseFull{}
-	if err = post(ctx, api.httpclient, "users.profile.set", values, response, api.debug); err != nil {
+	if err = postForm(ctx, api.httpclient, SLACK_API+"users.profile.set", values, response, api.debug); err != nil {
 		return err
 	}
 
