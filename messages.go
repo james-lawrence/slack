@@ -83,6 +83,17 @@ type Msg struct {
 	Reactions []ItemReaction `json:"reactions,omitempty"`
 }
 
+const (
+	ResponseTypeInChannel = "in_channel"
+	ResponseTypeEphemeral = "ephemeral"
+)
+
+// Msg contains information about a slack message that uses a ResponseURL as a Webhook
+type ResponseURLMsg struct {
+	Msg
+	ResponseType string `json:"response_type,omitempty"`
+}
+
 // Icon is used for bot messages
 type Icon struct {
 	IconURL   string `json:"icon_url,omitempty"`
