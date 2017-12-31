@@ -222,11 +222,12 @@ const (
 )
 
 type sendConfig struct {
-	options     []MsgOption
-	mode        sendMode
-	endpoint    string
-	values      url.Values
-	attachments []Attachment
+	options      []MsgOption
+	mode         sendMode
+	endpoint     string
+	values       url.Values
+	attachments  []Attachment
+	responseType string
 }
 
 func (t sendConfig) BuildRequest(token, channel string) (*http.Request, func(*chatResponseFull) responseParser, error) {
@@ -238,9 +239,10 @@ func (t sendConfig) BuildRequest(token, channel string) (*http.Request, func(*ch
 	switch config.mode {
 	case chatResponse:
 		return responseURLSender{
-			endpoint:    config.endpoint,
-			values:      config.values,
-			attachments: config.attachments,
+			endpoint:     config.endpoint,
+			values:       config.values,
+			attachments:  config.attachments,
+			responseType: config.responseType,
 		}.BuildRequest()
 	default:
 		return formSender{endpoint: config.endpoint, values: config.values}.BuildRequest()
@@ -260,16 +262,18 @@ func (t formSender) BuildRequest() (*http.Request, func(*chatResponseFull) respo
 }
 
 type responseURLSender struct {
-	endpoint    string
-	values      url.Values
-	attachments []Attachment
+	endpoint     string
+	values       url.Values
+	attachments  []Attachment
+	responseType string
 }
 
 func (t responseURLSender) BuildRequest() (*http.Request, func(*chatResponseFull) responseParser, error) {
 	req, err := jsonReq(t.endpoint, Msg{
-		Text:        t.values.Get("text"),
-		Timestamp:   t.values.Get("ts"),
-		Attachments: t.attachments,
+		Text:         t.values.Get("text"),
+		Timestamp:    t.values.Get("ts"),
+		Attachments:  t.attachments,
+		ResponseType: t.responseType,
 	})
 	return req, func(resp *chatResponseFull) responseParser {
 		return newTextResponseParser(resp)
@@ -319,10 +323,11 @@ func MsgOptionDelete(timestamp string) MsgOption {
 }
 
 // MsgOptionResponseURL supplies a url to use as the endpoint.
-func MsgOptionResponseURL(url string) MsgOption {
+func MsgOptionResponseURL(url string, rt string) MsgOption {
 	return func(config *sendConfig) error {
 		config.mode = chatResponse
 		config.endpoint = url
+		config.responseType = rt
 		config.values.Del("ts")
 		return nil
 	}

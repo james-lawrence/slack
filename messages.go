@@ -81,8 +81,16 @@ type Msg struct {
 	Team    string `json:"team,omitempty"`
 
 	// reactions
-	Reactions []ItemReaction `json:"reactions,omitempty"`
+	Reactions    []ItemReaction `json:"reactions,omitempty"`
+	ResponseType string         `json:"response_type,omitempty"`
 }
+
+const (
+	// ResponseTypeInChannel in channel response for slash commands.
+	ResponseTypeInChannel = "in_channel"
+	// ResponseTypeEphemeral ephemeral respone for slash commands.
+	ResponseTypeEphemeral = "ephemeral" // RepsonseTypeEptheral ...
+)
 
 // Icon is used for bot messages
 type Icon struct {
