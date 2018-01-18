@@ -253,20 +253,39 @@ func (api *Client) KickUserFromChannelContext(ctx context.Context, channelID, us
 	return nil
 }
 
+// GetChannelsOption options for the GetGroups method call.
+type GetChannelsOption ParamOption
+
+// GetChannelsOptionExcludeMembers exclude members from the channels call,
+// can be used to work around some issues with Channels's not correctly setting
+// the is_member field.
+func GetChannelsOptionExcludeMembers(exclude bool) GetChannelsOption {
+	return func(v *url.Values) {
+		if exclude {
+			v.Add("exclude_members", "true")
+		}
+	}
+}
+
 // GetChannels retrieves all the channels
 // see https://api.slack.com/methods/channels.list
-func (api *Client) GetChannels(excludeArchived bool) ([]Channel, error) {
-	return api.GetChannelsContext(context.Background(), excludeArchived)
+func (api *Client) GetChannels(excludeArchived bool, options ...GetChannelsOption) ([]Channel, error) {
+	return api.GetChannelsContext(context.Background(), excludeArchived, options...)
 }
 
 // GetChannelsContext retrieves all the channels with a custom context
 // see https://api.slack.com/methods/channels.list
-func (api *Client) GetChannelsContext(ctx context.Context, excludeArchived bool) ([]Channel, error) {
+func (api *Client) GetChannelsContext(ctx context.Context, excludeArchived bool, options ...GetChannelsOption) ([]Channel, error) {
 	values := url.Values{
 		"token": {api.token},
 	}
+
 	if excludeArchived {
 		values.Add("exclude_archived", "1")
+	}
+
+	for _, opt := range options {
+		opt(&values)
 	}
 
 	response, err := channelRequest(ctx, api.httpclient, "channels.list", values, api.debug)

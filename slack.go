@@ -53,6 +53,8 @@ type authTestResponseFull struct {
 	AuthTestResponse
 }
 
+type ParamOption func(*url.Values)
+
 type Client struct {
 	token      string
 	info       Info
